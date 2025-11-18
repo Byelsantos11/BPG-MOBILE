@@ -1,54 +1,159 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
-import Logo from "../../assets/logo/bpg-logo.png"; // ajusta o caminho se precisar
+import Logo from "../../assets/logo/bpg-logo.png";
+
+const API_BASE_URL = "http://192.168.0.112:3000"; // ajuste pro seu backend
 
 export default function LoginScreen() {
-  function irParaDashboard() {
-    // sem validação, sem backend – só navega
-    router.push("/dashboard");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // animações
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    // fade-in do card + tela subindo levemente
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+   
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoScale, {
+          toValue: 1.05,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoScale, {
+          toValue: 0.95,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [fadeAnim, logoScale]);
+
+  async function handleLogin() {
+    if (!email || !senha) {
+      Alert.alert("Erro", "Preencha email e senha.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, senha }),
+      });
+
+      if (!response.ok) {
+        Alert.alert("Erro", "Email ou senha inválidos.");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.token) {
+        Alert.alert("Erro", "Resposta do servidor inválida.");
+        return;
+      }
+
+      await AsyncStorage.setItem("token", data.token);
+
+      router.push("/dashboard");
+    } catch (error) {
+      console.log("Erro no login:", error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <Text style={styles.title}>BPG Store</Text>
 
-      <View style={styles.card}>
-        <Image source={Logo} style={styles.logo} />
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Animated.Image
+          source={Logo}
+          style={[styles.logo, { transform: [{ scale: logoScale }] }]}
+        />
 
         <Text style={styles.label}>Email</Text>
         <TextInput
-          placeholder="Digite seu email (teste)"
+          placeholder="Digite seu email"
           placeholderTextColor={COLORS.gray}
           style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
         />
 
         <Text style={styles.label}>Senha</Text>
         <TextInput
-          placeholder="Digite sua senha (teste)"
+          placeholder="Digite sua senha"
           placeholderTextColor={COLORS.gray}
           secureTextEntry
           style={styles.input}
+          value={senha}
+          onChangeText={setSenha}
+          autoCapitalize="none"
+          autoComplete="password"
         />
 
-        <TouchableOpacity style={styles.button} onPress={irParaDashboard}>
-          <Text style={styles.buttonText}>Entrar (teste)</Text>
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>
+            {loading ? "Entrando..." : "Entrar"}
+          </Text>
         </TouchableOpacity>
 
         <Text style={styles.helperText}>
-          Este é um login de teste, não valida nada.{"\n"}
-          É só pra visualizar o Dashboard / telas do frontend.
+          Use suas credenciais da BPG Store para acessar o painel.
         </Text>
-      </View>
-    </View>
+      </Animated.View>
+    </KeyboardAvoidingView>
   );
 }
 
