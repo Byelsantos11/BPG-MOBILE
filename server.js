@@ -4,6 +4,7 @@ const cors = require("cors");
 const authRoutes = require("./src/routes/authRoutes");
 const clienteRoutes = require("./src/routes/clienteRoutes");
 const produtoRoutes = require("./src/routes/produtoRoutes");
+const servicoRoutes = require("./src/routes/servicoRoutes");
 const db = require("./src/configdb/connection"); 
 const app = express();
 
@@ -28,6 +29,10 @@ app.use("/cliente", clienteRoutes);
 
 // Rotas Crud (produto)
 app.use("/produto", produtoRoutes);
+
+// Rotas Crud (serviço)
+app.use("/servico", servicoRoutes);
+
 
 // Servidor rodando
 const PORT = process.env.PORT || 3000;
