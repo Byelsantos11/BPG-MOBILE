@@ -8,12 +8,14 @@ import {
   Alert,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
 const API_BASE_URL = "http://192.168.0.112:3000";
 
 export default function EditClienteScreen() {
   const { id } = useLocalSearchParams();
+
   const [form, setForm] = useState({
     nome: "",
     email: "",
@@ -23,40 +25,74 @@ export default function EditClienteScreen() {
     estado: "",
   });
 
+  // BUSCAR DADOS EXISTENTES DO CLIENTE
   useEffect(() => {
-    async function load() {
+    async function loadCliente() {
       try {
-        const res = await fetch(`${API_BASE_URL}/clientes/${id}`);
+        const token = await AsyncStorage.getItem("token");
+
+        const res = await fetch(`${API_BASE_URL}/cliente/listarUm/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         const data = await res.json();
-        setForm(data);
+
+        if (!res.ok) {
+          Alert.alert("Erro", data.message || "Não foi possível carregar o cliente.");
+          return;
+        }
+
+        // Preenche os campos
+        setForm({
+          nome: data.nome || "",
+          email: data.email || "",
+          telefone: data.telefone || "",
+          endereco: data.endereco || "",
+          cidade: data.cidade || "",
+          estado: data.estado || "",
+        });
+
       } catch (err) {
         console.log("Erro ao carregar cliente:", err);
+        Alert.alert("Erro", "Falha ao buscar o cliente.");
       }
     }
 
-    if (id) load();
+    if (id) loadCliente();
   }, [id]);
 
   function update(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // SALVAR ALTERAÇÕES
   async function salvar() {
     try {
-      const res = await fetch(`${API_BASE_URL}/clientes/${id}`, {
+      const token = await AsyncStorage.getItem("token");
+
+      const res = await fetch(`${API_BASE_URL}/cliente/atualizar/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(form),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        Alert.alert("Erro", "Não foi possível atualizar o cliente.");
+        Alert.alert("Erro", data.message || "Não foi possível atualizar.");
         return;
       }
 
       Alert.alert("Sucesso", "Cliente atualizado!");
-      router.push("/dashboard");
+      router.push("/clientes");
+
     } catch (err) {
+      console.log(err);
       Alert.alert("Erro", "Falha no servidor.");
     }
   }
@@ -68,13 +104,13 @@ export default function EditClienteScreen() {
         <Text style={styles.title}>Editar Cliente</Text>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push("/dashboard")}
+          onPress={() => router.push("/clientes")}
         >
-          <Text style={styles.backButtonText}>← Dashboard</Text>
+          <Text style={styles.backButtonText}>← Voltar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* inputs */}
+      {/* inputs preenchidos com dados existentes */}
       {Object.keys(form).map((key) => (
         <TextInput
           key={key}
@@ -137,10 +173,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.blue,
     padding: 14,
     borderRadius: 12,
+    marginTop: 10,
   },
   buttonText: {
     color: COLORS.white,
     textAlign: "center",
+    fontSize: 16,
     fontWeight: "bold",
   },
 });

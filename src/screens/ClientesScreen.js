@@ -9,9 +9,11 @@ import {
   RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
+const API_LISTAR = "http://192.168.15.11:3000/cliente/listarTodos";
+const API_DELETE = "http://192.168.15.11:3000/cliente/deletar";
 
 export default function ClientesScreen() {
   const [clientes, setClientes] = useState([]);
@@ -19,11 +21,27 @@ export default function ClientesScreen() {
 
   async function loadClientes() {
     try {
-      const res = await fetch(`${API_BASE_URL}/clientes`);
+      setRefreshing(true);
+
+      const token = await AsyncStorage.getItem("token");
+
+      const res = await fetch(API_LISTAR, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert("Erro", data.message || "Falha ao carregar clientes.");
+        return;
+      }
+
       setClientes(data);
     } catch (err) {
-      console.log(err);
+      console.log("Erro ao buscar clientes:", err);
+      Alert.alert("Erro", "Servidor indisponível.");
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -41,10 +59,29 @@ export default function ClientesScreen() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
-            await fetch(`${API_BASE_URL}/clientes/${id}`, {
-              method: "DELETE",
-            });
-            loadClientes();
+            try {
+              const token = await AsyncStorage.getItem("token");
+
+              const res = await fetch(`${API_DELETE}/${id}`, {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              const data = await res.json();
+
+              if (!res.ok) {
+                Alert.alert("Erro", data.message || "Falha ao excluir.");
+                return;
+              }
+
+              Alert.alert("Sucesso", "Cliente removido.");
+              loadClientes();
+            } catch (err) {
+              console.log(err);
+              Alert.alert("Erro", "Servidor indisponível.");
+            }
           },
         },
       ]
@@ -73,10 +110,7 @@ export default function ClientesScreen() {
 
       <ScrollView
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={loadClientes}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={loadClientes} />
         }
       >
         {clientes.map((c) => (
@@ -169,6 +203,7 @@ const styles = StyleSheet.create({
   actions: {
     gap: 6,
     justifyContent: "center",
+    alignItems: "flex-end",
   },
   edit: {
     color: COLORS.blue,

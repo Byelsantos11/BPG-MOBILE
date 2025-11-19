@@ -8,9 +8,10 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
+const API_BASE_URL = "http://192.168.15.11:3000/cliente/criar";
 
 export default function AddClienteScreen() {
   const [form, setForm] = useState({
@@ -28,14 +29,27 @@ export default function AddClienteScreen() {
 
   async function salvarCliente() {
     try {
-      const res = await fetch(`${API_BASE_URL}/clientes`, {
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Erro", "Você não está autenticado. Faça login novamente.");
+        router.push("/");
+        return;
+      }
+
+      const res = await fetch(API_BASE_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify(form),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        Alert.alert("Erro", "Falha ao salvar cliente.");
+        Alert.alert("Erro", data.message || "Falha ao salvar cliente.");
         return;
       }
 
@@ -43,6 +57,7 @@ export default function AddClienteScreen() {
       router.push("/dashboard");
     } catch (err) {
       Alert.alert("Erro", "Servidor indisponível.");
+      console.log("Erro ao cadastrar cliente:", err);
     }
   }
 
@@ -52,9 +67,9 @@ export default function AddClienteScreen() {
         <Text style={styles.title}>Novo Cliente</Text>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push("/dashboard")}
+          onPress={() => router.push("/clientes")}
         >
-          <Text style={styles.backButtonText}>← Dashboard</Text>
+          <Text style={styles.backButtonText}>← Voltar</Text>
         </TouchableOpacity>
       </View>
 

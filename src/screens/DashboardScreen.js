@@ -7,12 +7,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Alert
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import DashCard from "../components/DashCard";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
+const API_CLIENTE = "http://192.168.15.11:3000/cliente/quantidade";
 
 export default function DashboardScreen() {
   const [stats, setStats] = useState({
@@ -28,22 +30,31 @@ export default function DashboardScreen() {
 
   async function loadDashboard() {
     try {
-      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
 
-      const response = await fetch(`${API_BASE_URL}/dashboard/metrics`);
-      const data = await response.json();
-
-      setStats({
-        totalClients: data.totalClients ?? 0,
-        activeServices: data.activeServices ?? 0,
-        totalStock: data.totalStock ?? 0,
-        lowStockAlerts: data.lowStockAlerts ?? 0,
-        serviceAlerts: data.serviceAlerts ?? 0,
+      const res = await fetch(API_CLIENTE, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-    } catch (error) {
-      console.log("Erro ao carregar métricas:", error);
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert("Erro", data.message || "Falha ao carregar dados.");
+        return;
+      }
+
+      // Supondo que sua rota retorna { total: número }
+      setStats((prev) => ({
+        ...prev,
+        totalClients: data.total || 0,
+      }));
+
+    } catch (err) {
+      console.log("Erro ao buscar dados:", err);
+      Alert.alert("Erro", "Servidor indisponível.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -54,7 +65,6 @@ export default function DashboardScreen() {
   async function onRefresh() {
     setRefreshing(true);
     await loadDashboard();
-    setRefreshing(false);
   }
 
   const hasAlerts = stats.lowStockAlerts > 0 || stats.serviceAlerts > 0;
@@ -70,7 +80,7 @@ export default function DashboardScreen() {
         <Text style={styles.appTitle}>BPG Store</Text>
         <Text style={styles.subtitle}>Visão geral do sistema</Text>
 
-        {/* MENU COMPLETO – CLIENTES / ESTOQUE / SERVIÇOS / PERFIL */}
+        {/* MENU */}
         <View style={styles.menuContainer}>
           <TouchableOpacity
             style={styles.menuButton}
@@ -145,38 +155,6 @@ export default function DashboardScreen() {
                 index={3}
               />
             </View>
-
-            <View style={styles.alertsWrapper}>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Alertas de serviços</Text>
-
-                <View style={styles.alertItem}>
-                  <View style={styles.alertTagService} />
-                  <View style={styles.alertTextBlock}>
-                    <Text style={styles.alertTitle}>Serviços com problema</Text>
-                    <Text style={styles.alertDescription}>
-                      {stats.serviceAlerts} serviço(s) com status de alerta.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Alertas de estoque</Text>
-
-                <View style={styles.alertItem}>
-                  <View style={styles.alertTagStock} />
-                  <View style={styles.alertTextBlock}>
-                    <Text style={styles.alertTitle}>
-                      Produtos com estoque baixo
-                    </Text>
-                    <Text style={styles.alertDescription}>
-                      {stats.lowStockAlerts} produto(s) abaixo do nível mínimo.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
           </>
         )}
       </ScrollView>
@@ -207,7 +185,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  /* NOVO MENU ESTILOS */
   menuContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -234,51 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 16,
   },
-  alertsWrapper: { marginTop: 8, gap: 12 },
 
-  section: {
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#020617",
-    borderWidth: 1,
-    borderColor: "#1f2937",
-  },
-  sectionTitle: {
-    color: COLORS.white,
-    fontWeight: "600",
-    marginBottom: 12,
-    fontSize: 16,
-  },
-  alertItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  alertTagService: {
-    width: 10,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: COLORS.blue,
-    marginRight: 10,
-  },
-  alertTagStock: {
-    width: 10,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: COLORS.danger,
-    marginRight: 10,
-  },
-  alertTextBlock: {
-    flex: 1,
-  },
-  alertTitle: {
-    color: COLORS.white,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  alertDescription: {
-    color: COLORS.gray,
-    fontSize: 13,
-  },
   loadingArea: {
     marginTop: 40,
     alignItems: "center",

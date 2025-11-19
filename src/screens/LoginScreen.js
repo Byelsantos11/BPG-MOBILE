@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 import Logo from "../../assets/logo/bpg-logo.png";
 
-const API_BASE_URL = "http://192.168.0.112:3000"; // ajuste pro seu backend
+const API_BASE_URL = "http://192.168.15.11:3000/auth/login"; 
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -60,7 +60,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(`${API_BASE_URL}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
