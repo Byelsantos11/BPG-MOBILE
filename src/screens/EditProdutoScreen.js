@@ -35,43 +35,51 @@ export default function EditProdutoScreen() {
     setForm((p) => ({ ...p, [key]: value }));
   }
 
-  // CARREGAR PRODUTO EXISTENTE
+  // 🔵 CARREGAR CLIENTE (URL CORRETA RESTAURADA)
   useEffect(() => {
-    async function load() {
+    async function loadProduto() {
       try {
         const token = await AsyncStorage.getItem("token");
 
-        const res = await fetch(`${API_BASE_URL}/produto/listarUm/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/produto/buscaid/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
 
-        if (!res.ok) {
-          Alert.alert("Erro", data.message || "Não foi possível carregar produto.");
-          return;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
         }
 
+        if (!res.ok) {
+          return Alert.alert("Erro", data?.message || "Erro ao carregar produto.");
+        }
+
+        const produto = Array.isArray(data) ? data[0] : data;
+
         setForm({
-          nome: data.nome || "",
-          marca: data.marca || "",
-          modelo: data.modelo || "",
-          preco: data.preco != null ? String(data.preco) : "",
-          estoque: data.estoque != null ? String(data.estoque) : "",
-          categoria: data.categoria || "",
-          descricao: data.descricao || "",
+          nome: produto.nome || "",
+          marca: produto.marca || "",
+          modelo: produto.modelo || "",
+          preco: produto.preco || "",
+          estoque: produto.estoque || "",
+          descricao: produto.descricao || "",
+          categoria: produto.categoria || "",
         });
       } catch (err) {
-        console.log("Erro ao carregar produto:", err);
+        console.log("Erro ao buscar produto:", err);
         Alert.alert("Erro", "Servidor indisponível.");
       } finally {
         setLoading(false);
       }
     }
 
-    if (id) load();
+    if (id) loadProduto();
   }, [id]);
 
   // SALVAR ALTERAÇÕES
