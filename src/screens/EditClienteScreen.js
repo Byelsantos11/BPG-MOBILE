@@ -30,36 +30,44 @@ export default function EditClienteScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  function update(key, value) {
+  const update = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-  }
+  };
 
-  // 🔵 CARREGAR DADOS DO CLIENTE
+  // 🔵 CARREGAR CLIENTE (URL CORRETA RESTAURADA)
   useEffect(() => {
     async function loadCliente() {
       try {
         const token = await AsyncStorage.getItem("token");
 
-        const res = await fetch(`${API_BASE_URL}/cliente/listarUm/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/cliente/buscaid/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
 
-        if (!res.ok) {
-          Alert.alert("Erro", data.message || "Erro ao carregar cliente.");
-          return;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
         }
 
+        if (!res.ok) {
+          return Alert.alert("Erro", data?.message || "Erro ao carregar cliente.");
+        }
+
+        const cliente = Array.isArray(data) ? data[0] : data;
+
         setForm({
-          nome: data.nome || "",
-          email: data.email || "",
-          telefone: data.telefone || "",
-          endereco: data.endereco || "",
-          cidade: data.cidade || "",
-          estado: data.estado || "",
+          nome: cliente.nome || "",
+          email: cliente.email || "",
+          telefone: cliente.telefone || "",
+          endereco: cliente.endereco || "",
+          cidade: cliente.cidade || "",
+          estado: cliente.estado || "",
         });
       } catch (err) {
         console.log("Erro ao buscar cliente:", err);
@@ -76,7 +84,6 @@ export default function EditClienteScreen() {
   async function salvar() {
     try {
       const token = await AsyncStorage.getItem("token");
-
       setSaving(true);
 
       const res = await fetch(`${API_BASE_URL}/cliente/atualizar/${id}`, {
@@ -88,19 +95,26 @@ export default function EditClienteScreen() {
         body: JSON.stringify(form),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
 
       if (!res.ok) {
-        Alert.alert("Erro", data.message || "Erro ao atualizar cliente.");
-        return;
+        return Alert.alert("Erro", data?.message || "Erro ao atualizar cliente.");
       }
 
       Alert.alert("Sucesso", "Cliente atualizado!", [
         {
           text: "OK",
-          onPress: () => router.push("/clientes"),
+          onPress: () => router.replace("/clientes"),
         },
       ]);
+      
     } catch (err) {
       console.log("Erro ao atualizar:", err);
       Alert.alert("Erro", "Falha no servidor.");
@@ -109,7 +123,7 @@ export default function EditClienteScreen() {
     }
   }
 
-  // 🔵 LOADING AO BUSCAR DADOS
+  // 🔵 LOADING
   if (loading) {
     return (
       <View style={styles.loadingArea}>
@@ -121,7 +135,7 @@ export default function EditClienteScreen() {
 
   return (
     <View style={styles.container}>
-      {/* TOPO */}
+      {/* Topo */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>Editar Cliente</Text>
         <TouchableOpacity
@@ -132,7 +146,7 @@ export default function EditClienteScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* FORM */}
+      {/* Form */}
       <ScrollView>
         {Object.keys(form).map((key) => (
           <TextInput

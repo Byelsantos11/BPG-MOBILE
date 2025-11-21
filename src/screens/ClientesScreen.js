@@ -120,8 +120,11 @@ export default function ClientesScreen() {
           <View key={c.id} style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{c.nome}</Text>
-              <Text style={styles.info}>{c.email}</Text>
-              <Text style={styles.info}>{c.telefone}</Text>
+              <Text style={styles.info}>Email: {c.email}</Text>
+              <Text style={styles.info}>Telefone: {c.telefone}</Text>
+              <Text style={styles.info}>Endereço: {c.endereco}</Text>
+              <Text style={styles.info}>Cidade: {c.estado}</Text>
+
             </View>
 
             {/* Ações */}
