@@ -15,6 +15,7 @@ import DashCard from "../components/DashCard";
 import { COLORS } from "../theme/colors";
 
 const API_CLIENTE = "http://192.168.15.11:3000/cliente/quantidade";
+const API_PRODUTO = "http://192.168.15.11:3000/produto/quantidade";
 
 export default function DashboardScreen() {
   const [stats, setStats] = useState({
@@ -30,23 +31,44 @@ export default function DashboardScreen() {
 
   async function loadDashboard() {
     try {
+      setLoading(true);
+
       const token = await AsyncStorage.getItem("token");
-
-      const res = await fetch(API_CLIENTE, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        Alert.alert("Erro", data.message || "Falha ao carregar dados.");
+      if (!token) {
+        Alert.alert("Erro", "Token não encontrado. Faça login novamente.");
         return;
       }
 
-      // Supondo que sua rota retorna { total: número }
+      /* ===== CLIENTES ===== */
+      const resClientes = await fetch(API_CLIENTE, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const dataClientes = await resClientes.json();
+
+      if (!resClientes.ok) {
+        Alert.alert("Erro", dataClientes.message || "Falha ao carregar clientes.");
+        return;
+      }
+
+      /* ===== PRODUTOS ===== */
+      const resProduto = await fetch(API_PRODUTO, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const dataProduto = await resProduto.json();
+
+      if (!resProduto.ok) {
+        Alert.alert("Erro", dataProduto.message || "Falha ao carregar produtos.");
+        return;
+      }
+
+      /* Inserindo valores no estado do dashboard */
       setStats((prev) => ({
         ...prev,
-        totalClients: data.total || 0,
+        totalClients: dataClientes.total || 0,
+        totalStock: dataProduto.total || 0,
+        lowStockAlerts: dataProduto.baixoEstoque || 0, // Caso você envie isso no backend depois
       }));
 
     } catch (err) {
@@ -113,6 +135,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* CARDS */}
         {loading ? (
           <View style={styles.loadingArea}>
             <ActivityIndicator size="large" color={COLORS.blue} />

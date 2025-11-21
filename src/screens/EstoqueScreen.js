@@ -10,8 +10,10 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { COLORS } from "../theme/colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
+const API_LISTAR = "http://192.168.15.11:3000/produto/listarTodos";
+const API_DELETE = "http://192.168.15.11:3000/produto/deletar";
 
 export default function EstoqueScreen() {
   const [produtos, setProdutos] = useState([]);
@@ -19,11 +21,27 @@ export default function EstoqueScreen() {
 
   async function loadProdutos() {
     try {
-      const res = await fetch(`${API_BASE_URL}/produtos`);
+      setRefreshing(true);
+
+      const token = await AsyncStorage.getItem("token");
+
+      const res = await fetch(API_LISTAR, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert("Erro", data.message || "Falha ao carregar produtos.");
+        return;
+      }
+
       setProdutos(data);
     } catch (err) {
-      console.log("Erro ao carregar produtos:", err);
+      console.log("Erro ao buscar produtos:", err);
+      Alert.alert("Erro", "Servidor indisponível.");
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -41,10 +59,24 @@ export default function EstoqueScreen() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
-            await fetch(`${API_BASE_URL}/produtos/${id}`, {
-              method: "DELETE",
-            });
-            loadProdutos();
+            try {
+              const token = await AsyncStorage.getItem("token");
+
+              const res = await fetch(`${API_DELETE}/${id}`, {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (!res.ok) {
+                return Alert.alert("Erro", "Não foi possível excluir.");
+              }
+
+              loadProdutos();
+            } catch (err) {
+              Alert.alert("Erro", "Servidor indisponível.");
+            }
           },
         },
       ]
