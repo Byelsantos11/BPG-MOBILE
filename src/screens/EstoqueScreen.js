@@ -113,10 +113,19 @@ export default function EstoqueScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{p.nome}</Text>
               <Text style={styles.info}>
-                {p.marca} • {p.modelo}
+                Marca: {p.marca}
               </Text>
               <Text style={styles.info}>
-                R$ {Number(p.preco).toFixed(2)} • Estoque: {p.estoque}
+                Modelo: {p.modelo}
+              </Text>
+              <Text style={styles.info}>
+                Descrição: {p.descricao}
+              </Text>
+              <Text style={styles.info}>
+                Valor R$ {Number(p.preco).toFixed(2)} 
+              </Text>
+              <Text style={styles.info}>
+                Quantidade: {p.estoque}
               </Text>
               {p.categoria ? (
                 <Text style={styles.tag}>{p.categoria}</Text>
