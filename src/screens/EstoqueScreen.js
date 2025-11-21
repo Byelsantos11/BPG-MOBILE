@@ -69,12 +69,19 @@ export default function EstoqueScreen() {
                 },
               });
 
+              const data = await res.json().catch(() => ({}));
+
               if (!res.ok) {
-                return Alert.alert("Erro", "Não foi possível excluir.");
+                return Alert.alert(
+                  "Erro",
+                  data.message || "Não foi possível excluir."
+                );
               }
 
+              Alert.alert("Sucesso", "Produto removido com sucesso!");
               loadProdutos();
             } catch (err) {
+              console.log("Erro ao excluir produto:", err);
               Alert.alert("Erro", "Servidor indisponível.");
             }
           },
@@ -112,21 +119,13 @@ export default function EstoqueScreen() {
           <View key={p.id} style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{p.nome}</Text>
+              <Text style={styles.info}>Marca: {p.marca}</Text>
+              <Text style={styles.info}>Modelo: {p.modelo}</Text>
+              <Text style={styles.info}>Descrição: {p.descricao}</Text>
               <Text style={styles.info}>
-                Marca: {p.marca}
+                Valor R$ {Number(p.preco).toFixed(2)}
               </Text>
-              <Text style={styles.info}>
-                Modelo: {p.modelo}
-              </Text>
-              <Text style={styles.info}>
-                Descrição: {p.descricao}
-              </Text>
-              <Text style={styles.info}>
-                Valor R$ {Number(p.preco).toFixed(2)} 
-              </Text>
-              <Text style={styles.info}>
-                Quantidade: {p.estoque}
-              </Text>
+              <Text style={styles.info}>Quantidade: {p.estoque}</Text>
               {p.categoria ? (
                 <Text style={styles.tag}>{p.categoria}</Text>
               ) : null}

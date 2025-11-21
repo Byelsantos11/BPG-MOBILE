@@ -6,72 +6,121 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
-const SERVICE_ENDPOINT = `${API_BASE_URL}/services`;
+const API_BASE_URL = "http://192.168.15.11:3000";
 
 export default function EditServicoScreen() {
   const { id } = useLocalSearchParams();
 
   const [form, setForm] = useState({
-    titulo: "",
-    clienteNome: "",
-    status: "",
-    valor: "",
-    descricao: "",
+    dispositivo: "",
+    cliente_nome: "",
+    tecnico: "",
+    descricao_problema: "",
+    status_servico: "",
+    prioridade: "",
+    previsao_conclusao: "",
   });
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  function update(key, value) {
+    setForm((p) => ({ ...p, [key]: value }));
+  }
+
+  // CARREGAR SERVIÇO
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${SERVICE_ENDPOINT}/${id}`);
+        const token = await AsyncStorage.getItem("token");
+
+        const res = await fetch(`${API_BASE_URL}/servico/listarUm/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         const data = await res.json();
+
+        if (!res.ok) {
+          Alert.alert("Erro", data.message || "Não foi possível carregar serviço.");
+          return;
+        }
+
         setForm({
-          titulo: data.titulo || data.nome || "",
-          clienteNome: data.clienteNome || "",
-          status: data.status || "",
-          valor: data.valor ? String(data.valor) : "",
-          descricao: data.descricao || "",
+          dispositivo: data.dispositivo || "",
+          cliente_nome: data.cliente_nome || "",
+          tecnico: data.tecnico || "",
+          descricao_problema: data.descricao_problema || "",
+          status_servico: data.status_servico || "",
+          prioridade: data.prioridade || "",
+          previsao_conclusao: data.previsao_conclusao
+            ? String(data.previsao_conclusao).slice(0, 10)
+            : "",
         });
       } catch (err) {
         console.log("Erro ao carregar serviço:", err);
+        Alert.alert("Erro", "Servidor indisponível.");
+      } finally {
+        setLoading(false);
       }
     }
 
     if (id) load();
   }, [id]);
 
-  function update(key, value) {
-    setForm((p) => ({ ...p, [key]: value }));
-  }
-
+  // SALVAR ALTERAÇÕES
   async function salvar() {
     try {
+      const token = await AsyncStorage.getItem("token");
+
+      setSaving(true);
+
       const body = {
         ...form,
-        valor: form.valor ? Number(form.valor) : 0,
       };
 
-      const res = await fetch(`${SERVICE_ENDPOINT}/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/servico/atualizar/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        Alert.alert("Erro", "Não foi possível atualizar o serviço.");
+        Alert.alert("Erro", data.message || "Não foi possível atualizar serviço.");
         return;
       }
 
-      Alert.alert("Sucesso!", "Serviço atualizado!");
-      router.push("/dashboard");
+      Alert.alert("Sucesso!", "Serviço atualizado!", [
+        { text: "OK", onPress: () => router.push("/servicos") },
+      ]);
     } catch (err) {
       console.log("Erro ao salvar serviço:", err);
       Alert.alert("Erro", "Servidor indisponível.");
+    } finally {
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.loadingArea}>
+        <ActivityIndicator size="large" color={COLORS.blue} />
+        <Text style={styles.loadingText}>Carregando dados do serviço...</Text>
+      </View>
+    );
   }
 
   return (
@@ -81,54 +130,39 @@ export default function EditServicoScreen() {
         <Text style={styles.title}>Editar Serviço</Text>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push("/dashboard")}
+          onPress={() => router.push("/servicos")}
         >
-          <Text style={styles.backButtonText}>← Dashboard</Text>
+          <Text style={styles.backButtonText}>← Serviços</Text>
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        placeholder="Título do serviço"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.titulo}
-        onChangeText={(v) => update("titulo", v)}
-      />
-      <TextInput
-        placeholder="Nome do cliente"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.clienteNome}
-        onChangeText={(v) => update("clienteNome", v)}
-      />
-      <TextInput
-        placeholder="Status"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.status}
-        onChangeText={(v) => update("status", v)}
-      />
-      <TextInput
-        placeholder="Valor"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.valor}
-        onChangeText={(v) => update("valor", v)}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Descrição"
-        placeholderTextColor={COLORS.gray}
-        style={[styles.input, styles.textArea]}
-        value={form.descricao}
-        onChangeText={(v) => update("descricao", v)}
-        multiline
-        numberOfLines={4}
-      />
+      <ScrollView>
+        {Object.keys(form).map((key) => (
+          <TextInput
+            key={key}
+            placeholder={key.toUpperCase()}
+            placeholderTextColor={COLORS.gray}
+            style={[
+              styles.input,
+              key === "descricao_problema" && styles.textArea,
+            ]}
+            value={form[key]}
+            onChangeText={(v) => update(key, v)}
+            multiline={key === "descricao_problema"}
+            numberOfLines={key === "descricao_problema" ? 4 : 1}
+          />
+        ))}
 
-      <TouchableOpacity style={styles.button} onPress={salvar}>
-        <Text style={styles.buttonText}>Salvar Alterações</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, saving && { opacity: 0.7 }]}
+          onPress={salvar}
+          disabled={saving}
+        >
+          <Text style={styles.buttonText}>
+            {saving ? "Salvando..." : "Salvar Alterações"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -179,10 +213,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.blue,
     padding: 14,
     borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 30,
   },
   buttonText: {
     color: COLORS.white,
     textAlign: "center",
     fontWeight: "bold",
+  },
+  loadingArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.dark,
+  },
+  loadingText: {
+    color: COLORS.gray,
+    marginTop: 8,
   },
 });

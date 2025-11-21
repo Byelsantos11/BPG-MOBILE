@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
+const API_BASE_URL = "http://192.168.15.11:3000";
 
 export default function EditProdutoScreen() {
   const { id } = useLocalSearchParams();
@@ -25,54 +28,99 @@ export default function EditProdutoScreen() {
     descricao: "",
   });
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  function update(key, value) {
+    setForm((p) => ({ ...p, [key]: value }));
+  }
+
+  // CARREGAR PRODUTO EXISTENTE
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${API_BASE_URL}/produtos/${id}`);
+        const token = await AsyncStorage.getItem("token");
+
+        const res = await fetch(`${API_BASE_URL}/produto/listarUm/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         const data = await res.json();
 
+        if (!res.ok) {
+          Alert.alert("Erro", data.message || "Não foi possível carregar produto.");
+          return;
+        }
+
         setForm({
-          nome: data.nome,
-          marca: data.marca,
-          modelo: data.modelo,
-          preco: String(data.preco),
-          estoque: String(data.estoque),
+          nome: data.nome || "",
+          marca: data.marca || "",
+          modelo: data.modelo || "",
+          preco: data.preco != null ? String(data.preco) : "",
+          estoque: data.estoque != null ? String(data.estoque) : "",
           categoria: data.categoria || "",
           descricao: data.descricao || "",
         });
       } catch (err) {
-        console.log(err);
+        console.log("Erro ao carregar produto:", err);
+        Alert.alert("Erro", "Servidor indisponível.");
+      } finally {
+        setLoading(false);
       }
     }
 
     if (id) load();
   }, [id]);
 
-  function update(key, value) {
-    setForm((p) => ({ ...p, [key]: value }));
-  }
-
+  // SALVAR ALTERAÇÕES
   async function salvar() {
     try {
+      const token = await AsyncStorage.getItem("token");
+
+      setSaving(true);
+
       const body = {
         ...form,
         preco: Number(form.preco),
         estoque: Number(form.estoque),
       };
 
-      const res = await fetch(`${API_BASE_URL}/produtos/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/produto/atualizar/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) return Alert.alert("Erro!", "Não foi possível atualizar");
+      const data = await res.json().catch(() => ({}));
 
-      Alert.alert("Sucesso!", "Produto atualizado!");
-      router.push("/dashboard");
+      if (!res.ok) {
+        Alert.alert("Erro", data.message || "Não foi possível atualizar");
+        return;
+      }
+
+      Alert.alert("Sucesso!", "Produto atualizado!", [
+        { text: "OK", onPress: () => router.push("/estoque") },
+      ]);
     } catch (err) {
+      console.log("Erro ao salvar produto:", err);
       Alert.alert("Erro", "Servidor indisponível");
+    } finally {
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.loadingArea}>
+        <ActivityIndicator size="large" color={COLORS.blue} />
+        <Text style={styles.loadingText}>Carregando dados do produto...</Text>
+      </View>
+    );
   }
 
   return (
@@ -82,29 +130,36 @@ export default function EditProdutoScreen() {
         <Text style={styles.title}>Editar Produto</Text>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push("/dashboard")}
+          onPress={() => router.push("/estoque")}
         >
-          <Text style={styles.backButtonText}>← Dashboard</Text>
+          <Text style={styles.backButtonText}>← Estoque</Text>
         </TouchableOpacity>
       </View>
 
-      {/* INPUTS */}
-      {Object.keys(form).map((key) => (
-        <TextInput
-          key={key}
-          placeholder={key.toUpperCase()}
-          placeholderTextColor={COLORS.gray}
-          style={[styles.input, key === "descricao" && styles.textArea]}
-          value={form[key]}
-          onChangeText={(v) => update(key, v)}
-          multiline={key === "descricao"}
-          numberOfLines={key === "descricao" ? 4 : 1}
-        />
-      ))}
+      <ScrollView>
+        {Object.keys(form).map((key) => (
+          <TextInput
+            key={key}
+            placeholder={key.toUpperCase()}
+            placeholderTextColor={COLORS.gray}
+            style={[styles.input, key === "descricao" && styles.textArea]}
+            value={form[key]}
+            onChangeText={(v) => update(key, v)}
+            multiline={key === "descricao"}
+            numberOfLines={key === "descricao" ? 4 : 1}
+          />
+        ))}
 
-      <TouchableOpacity style={styles.button} onPress={salvar}>
-        <Text style={styles.buttonText}>Salvar Alterações</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, saving && { opacity: 0.7 }]}
+          onPress={salvar}
+          disabled={saving}
+        >
+          <Text style={styles.buttonText}>
+            {saving ? "Salvando..." : "Salvar Alterações"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -155,10 +210,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.blue,
     padding: 14,
     borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 30,
   },
   buttonText: {
     color: COLORS.white,
     textAlign: "center",
     fontWeight: "bold",
   },
+  loadingArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.dark,
+  },
+  loadingText: {
+    color: COLORS.gray,
+    marginTop: 8,
+  },
 });
+  

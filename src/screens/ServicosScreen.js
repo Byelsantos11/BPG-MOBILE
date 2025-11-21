@@ -69,13 +69,17 @@ export default function ServicosScreen() {
                 },
               });
 
-              const data = await res.json();
+              const data = await res.json().catch(() => ({}));
 
               if (!res.ok) {
-                Alert.alert("Erro", data.message || "Falha ao excluir serviço.");
+                Alert.alert(
+                  "Erro",
+                  data.message || "Falha ao excluir serviço."
+                );
                 return;
               }
 
+              Alert.alert("Sucesso", "Serviço removido.");
               loadServicos();
             } catch (err) {
               console.log("Erro ao excluir serviço:", err);
@@ -117,18 +121,16 @@ export default function ServicosScreen() {
         {servicos.map((s) => (
           <View key={s.id} style={styles.card}>
             <View style={{ flex: 1 }}>
-              
               {/* TÍTULO */}
               <Text style={styles.name}>{s.dispositivo}</Text>
 
               {/* LINHA SECUNDÁRIA */}
               <Text style={styles.info}>
-                Cliente: {s.cliente_nome || "Não informado"} 
+                Cliente: {s.cliente_nome || "Não informado"}
               </Text>
               <Text style={styles.info}>Técnico: {s.tecnico}</Text>
               <Text style={styles.info}>Problema: {s.descricao_problema}</Text>
 
-            
               {/* PREVISÃO */}
               {s.previsao_conclusao && (
                 <Text style={styles.info}>
@@ -137,7 +139,7 @@ export default function ServicosScreen() {
                 </Text>
               )}
 
-            <Text style={styles.info}>Status: {s.status_servico}</Text>
+              <Text style={styles.info}>Status: {s.status_servico}</Text>
 
               {/* PRIORIDADE COMO TAG */}
               {s.prioridade ? (
@@ -261,3 +263,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
+  
