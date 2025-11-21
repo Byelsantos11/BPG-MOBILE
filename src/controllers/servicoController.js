@@ -1,6 +1,8 @@
 const db = require("../configdb/connection");
 
-// Criar Serviço
+/* ============================================================
+   CRIAR SERVIÇO
+   ============================================================ */
 exports.criarServico = (req, res) => {
   const {
     cliente_id,
@@ -55,20 +57,61 @@ exports.criarServico = (req, res) => {
   );
 };
 
-
-// Listar Todos os Serviços
+/* ============================================================
+   LISTAR TODOS OS SERVIÇOS (COM NOME DO CLIENTE)
+   ============================================================ */
 exports.listarServico = (req, res) => {
-  db.query("SELECT * FROM servicos", (err, results) => {
+  const sql = `
+    SELECT 
+      s.*,
+      c.nome AS cliente_nome
+    FROM servicos s
+    LEFT JOIN clientes c ON c.id = s.cliente_id
+    ORDER BY s.id DESC
+  `;
+
+  db.query(sql, (err, results) => {
     if (err) {
       console.error("Erro ao buscar serviços:", err);
       return res.status(500).json({ message: "Erro ao buscar serviços" });
     }
+
     res.json(results);
   });
 };
 
+/* ============================================================
+   BUSCAR SERVIÇO POR ID (COM NOME DO CLIENTE)
+   ============================================================ */
+exports.buscarServico = (req, res) => {
+  const { id } = req.params;
 
-// Atualizar Serviço
+  const sql = `
+    SELECT 
+      s.*,
+      c.nome AS cliente_nome
+    FROM servicos s
+    LEFT JOIN clientes c ON c.id = s.cliente_id
+    WHERE s.id = ?
+  `;
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("Erro ao buscar serviço:", err);
+      return res.status(500).json({ message: "Erro ao buscar serviço" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Serviço não encontrado" });
+    }
+
+    res.json(results[0]);
+  });
+};
+
+/* ============================================================
+   ATUALIZAR SERVIÇO
+   ============================================================ */
 exports.atualizarServico = (req, res) => {
   const { id } = req.params;
 
@@ -121,66 +164,47 @@ exports.atualizarServico = (req, res) => {
   );
 };
 
-
-// Buscar Servico por ID
-exports.buscarServico = (req, res) => {
-    const { id } = req.params;
-  
-    db.query("SELECT * FROM servicos WHERE id = ?", [id], (err, results) => {
-      if (err) {
-        console.error("Erro ao buscar serviço:", err);
-        return res.status(500).json({ message: "Erro ao buscar serviço" });
-      }
-  
-      if (results.length === 0) {
-        return res.status(404).json({ message: "Serviço não encontrado" });
-      }
-  
-      res.json(results[0]);
-    });
-  };
-  
-
-// Deletar Produto
+/* ============================================================
+   DELETAR SERVIÇO
+   ============================================================ */
 exports.deletarServico = (req, res) => {
-    const { id } = req.params;
-  
-    db.query("DELETE FROM servicos WHERE id = ?", [id], (err, result) => {
-      if (err) {
-        console.error("Erro ao deletar servico:", err);
-        return res.status(500).json({ message: "Erro ao deletar servico" });
-      }
-  
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "servico não encontrado" });
-      }
-  
-      res.json({ message: "Servico deletado com sucesso!" });
-    });
-  };
+  const { id } = req.params;
 
+  db.query("DELETE FROM servicos WHERE id = ?", [id], (err, result) => {
+    if (err) {
+      console.error("Erro ao deletar serviço:", err);
+      return res.status(500).json({ message: "Erro ao deletar serviço" });
+    }
 
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Serviço não encontrado" });
+    }
 
-// Total de Serviços Ativos
+    res.json({ message: "Serviço deletado com sucesso!" });
+  });
+};
+
+/* ============================================================
+   TOTAL DE SERVIÇOS ATIVOS
+   ============================================================ */
 exports.totalServicosAtivos = (req, res) => {
-    const sql = `
-      SELECT COUNT(*) AS total 
-      FROM servicos
-      WHERE status_servico IN (
-        'Pendente', 
-        'Em diagnóstico', 
-        'Aguardando peças', 
-        'Em andamento'
-      )
-    `;
-  
-    db.query(sql, (err, results) => {
-      if (err) {
-        console.error("Erro ao contar serviços ativos:", err);
-        return res.status(500).json({ message: "Erro ao contar serviços ativos" });
-      }
-  
-      res.json({ total: results[0].total });
-    });
-  };
-  
+  const sql = `
+    SELECT COUNT(*) AS total 
+    FROM servicos
+    WHERE status_servico IN (
+      'Pendente', 
+      'Em diagnóstico', 
+      'Aguardando peças', 
+      'Em andamento'
+    )
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Erro ao contar serviços ativos:", err);
+      return res.status(500).json({ message: "Erro ao contar serviços ativos" });
+    }
+
+    res.json({ total: results[0].total });
+  });
+};
