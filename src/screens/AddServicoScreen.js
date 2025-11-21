@@ -1,120 +1,217 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
+  ScrollView,
   Alert,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { router } from "expo-router";
 import { COLORS } from "../theme/colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
-const SERVICE_ENDPOINT = `${API_BASE_URL}/services`;
+const AddServicoScreen = () => {
+  const [clientes, setClientes] = useState([]);
 
-export default function AddServicoScreen() {
   const [form, setForm] = useState({
-    titulo: "",
-    clienteNome: "",
-    status: "",
-    valor: "",
-    descricao: "",
+    cliente_id: "",
+    dispositivo: "",
+    numero_serie: "",
+    tecnico: "",
+    status_servico: "",
+    prioridade: "",
+    previsao_conclusao: "",
+    descricao_problema: "",
   });
 
-  function update(key, value) {
-    setForm((p) => ({ ...p, [key]: value }));
-  }
+  const update = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
-  async function salvar() {
-    if (!form.titulo || !form.clienteNome) {
-      Alert.alert("Erro", "Preencha pelo menos título e cliente.");
-      return;
-    }
-
+  // Carregar clientes
+  const loadClientes = async () => {
     try {
-      const body = {
-        ...form,
-        valor: form.valor ? Number(form.valor) : 0,
-      };
+      const token = await AsyncStorage.getItem("token");
 
-      const res = await fetch(SERVICE_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const resp = await fetch("http://192.168.15.11:3000/cliente/listarTodos", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      if (!res.ok) {
-        Alert.alert("Erro", "Não foi possível cadastrar o serviço.");
-        return;
+      const data = await resp.json();
+      setClientes(data);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar os clientes.");
+    }
+  };
+
+  useEffect(() => {
+    loadClientes();
+  }, []);
+
+  // Enviar serviço
+  const handleAdd = async () => {
+    if (
+      !form.cliente_id ||
+      !form.dispositivo ||
+      !form.numero_serie ||
+      !form.tecnico ||
+      !form.status_servico ||
+      !form.prioridade ||
+      !form.descricao_problema
+    ) {
+      return Alert.alert("Erro", "Preencha todos os campos obrigatórios!");
+    }
+
+    const API_BASE_URL = "http://192.168.15.11:3000/servico/criar";
+    const token = await AsyncStorage.getItem("token");
+
+    try {
+      const response = await fetch(API_BASE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+
+      if (!response.ok) {
+        return Alert.alert("Erro", "Falha ao cadastrar o serviço.");
       }
 
-      Alert.alert("Sucesso!", "Serviço cadastrado!");
-      router.push("/dashboard");
-    } catch (err) {
-      console.log("Erro ao salvar serviço:", err);
-      Alert.alert("Erro", "Servidor indisponível.");
+      Alert.alert("Sucesso", "Serviço cadastrado!");
+      router.back();
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
     }
-  }
+  };
 
   return (
-    <View style={styles.container}>
-      {/* TOPO */}
+    <ScrollView style={styles.container}>
+      {/* HEADER */}
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Novo Serviço</Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push("/dashboard")}
-        >
-          <Text style={styles.backButtonText}>← Dashboard</Text>
+        <Text style={styles.title}>Adicionar Serviço</Text>
+
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Voltar</Text>
         </TouchableOpacity>
       </View>
 
+      {/* CLIENTE */}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={form.cliente_id}
+          onValueChange={(v) => update("cliente_id", v)}
+          style={styles.picker}
+          dropdownIconColor={COLORS.white}
+        >
+          <Picker.Item label="Selecione o cliente" value="" />
+
+          {clientes.map((c) => (
+            <Picker.Item
+              key={c.id}
+              label={c.nome}
+              value={c.id.toString()}
+            />
+          ))}
+        </Picker>
+      </View>
+
       <TextInput
-        placeholder="Título do serviço"
+        placeholder="Dispositivo"
         placeholderTextColor={COLORS.gray}
         style={styles.input}
-        value={form.titulo}
-        onChangeText={(v) => update("titulo", v)}
-      />
-      <TextInput
-        placeholder="Nome do cliente"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.clienteNome}
-        onChangeText={(v) => update("clienteNome", v)}
-      />
-      <TextInput
-        placeholder="Status (ex: Em andamento, Concluído)"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.status}
-        onChangeText={(v) => update("status", v)}
-      />
-      <TextInput
-        placeholder="Valor (ex: 250.00)"
-        placeholderTextColor={COLORS.gray}
-        style={styles.input}
-        value={form.valor}
-        onChangeText={(v) => update("valor", v)}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Descrição"
-        placeholderTextColor={COLORS.gray}
-        style={[styles.input, styles.textArea]}
-        value={form.descricao}
-        onChangeText={(v) => update("descricao", v)}
-        multiline
-        numberOfLines={4}
+        value={form.dispositivo}
+        onChangeText={(v) => update("dispositivo", v)}
       />
 
-      <TouchableOpacity style={styles.button} onPress={salvar}>
-        <Text style={styles.buttonText}>Salvar Serviço</Text>
+      <TextInput
+        placeholder="Número de Série"
+        placeholderTextColor={COLORS.gray}
+        style={styles.input}
+        value={form.numero_serie}
+        onChangeText={(v) => update("numero_serie", v)}
+      />
+
+      {/* TÉCNICO */}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={form.tecnico}
+          onValueChange={(v) => update("tecnico", v)}
+          style={styles.picker}
+          dropdownIconColor={COLORS.white}
+        >
+          <Picker.Item label="Selecione o técnico" value="" />
+          <Picker.Item label="Michel" value="Michel" />
+          <Picker.Item label="Celso" value="Celso" />
+        </Picker>
+      </View>
+
+      {/* STATUS DO SERVIÇO */}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={form.status_servico}
+          onValueChange={(v) => update("status_servico", v)}
+          style={styles.picker}
+          dropdownIconColor={COLORS.white}
+        >
+          <Picker.Item label="Selecione o status" value="" />
+          <Picker.Item label="Pendente" value="Pendente" />
+          <Picker.Item label="Em diagnóstico" value="Em diagnóstico" />
+          <Picker.Item label="Aguardando peças" value="Aguardando peças" />
+          <Picker.Item label="Em andamento" value="Em andamento" />
+          <Picker.Item label="Concluído" value="Concluído" />
+          <Picker.Item label="Cancelado" value="Cancelado" />
+        </Picker>
+      </View>
+
+      {/* PRIORIDADE */}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={form.prioridade}
+          onValueChange={(v) => update("prioridade", v)}
+          style={styles.picker}
+          dropdownIconColor={COLORS.white}
+        >
+          <Picker.Item label="Selecione a prioridade" value="" />
+          <Picker.Item label="Baixa" value="Baixa" />
+          <Picker.Item label="Média" value="Média" />
+          <Picker.Item label="Alta" value="Alta" />
+        </Picker>
+      </View>
+
+      <TextInput
+        placeholder="Previsão de Conclusão (AAAA-MM-DD)"
+        placeholderTextColor={COLORS.gray}
+        style={styles.input}
+        value={form.previsao_conclusao}
+        onChangeText={(v) => update("previsao_conclusao", v)}
+      />
+
+      {/* DESCRIÇÃO DO PROBLEMA */}
+      <TextInput
+        placeholder="Descrição do Problema"
+        placeholderTextColor={COLORS.gray}
+        style={[styles.input, styles.textArea]}
+        multiline
+        value={form.descricao_problema}
+        onChangeText={(v) => update("descricao_problema", v)}
+      />
+
+      {/* BOTÃO */}
+      <TouchableOpacity style={styles.button} onPress={handleAdd}>
+        <Text style={styles.buttonText}>Cadastrar</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
-}
+};
+
+export default AddServicoScreen;
 
 /* ESTILOS */
 const styles = StyleSheet.create({
@@ -158,10 +255,22 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: "top",
   },
+  pickerContainer: {
+    backgroundColor: "#0f172a",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  picker: {
+    color: COLORS.white,
+  },
   button: {
     backgroundColor: COLORS.blue,
     padding: 14,
     borderRadius: 12,
+    marginTop: 10,
   },
   buttonText: {
     color: COLORS.white,

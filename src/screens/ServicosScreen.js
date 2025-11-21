@@ -9,10 +9,11 @@ import {
   RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../theme/colors";
 
-const API_BASE_URL = "http://192.168.0.112:3000";
-const SERVICE_ENDPOINT = `${API_BASE_URL}/services`;
+const API_LISTAR = "http://192.168.15.11:3000/servico/listarTodos";
+const API_DELETE = "http://192.168.15.11:3000/servico/deletar";
 
 export default function ServicosScreen() {
   const [servicos, setServicos] = useState([]);
@@ -20,11 +21,27 @@ export default function ServicosScreen() {
 
   async function loadServicos() {
     try {
-      const res = await fetch(SERVICE_ENDPOINT);
+      setRefreshing(true);
+
+      const token = await AsyncStorage.getItem("token");
+
+      const res = await fetch(API_LISTAR, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert("Erro", data.message || "Falha ao carregar serviços.");
+        return;
+      }
+
       setServicos(data);
     } catch (err) {
       console.log("Erro ao carregar serviços:", err);
+      Alert.alert("Erro", "Servidor indisponível.");
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -43,12 +60,26 @@ export default function ServicosScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await fetch(`${SERVICE_ENDPOINT}/${id}`, {
+              const token = await AsyncStorage.getItem("token");
+
+              const res = await fetch(`${API_DELETE}/${id}`, {
                 method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
               });
+
+              const data = await res.json();
+
+              if (!res.ok) {
+                Alert.alert("Erro", data.message || "Falha ao excluir serviço.");
+                return;
+              }
+
               loadServicos();
             } catch (err) {
               console.log("Erro ao excluir serviço:", err);
+              Alert.alert("Erro", "Servidor indisponível.");
             }
           },
         },
@@ -80,27 +111,38 @@ export default function ServicosScreen() {
       {/* LISTA */}
       <ScrollView
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={loadServicos}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={loadServicos} />
         }
       >
         {servicos.map((s) => (
           <View key={s.id} style={styles.card}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{s.titulo || s.nome}</Text>
-              {s.clienteNome && (
-                <Text style={styles.info}>Cliente: {s.clienteNome}</Text>
-              )}
-              {s.status && (
-                <Text style={styles.info}>Status: {s.status}</Text>
-              )}
-              {s.valor && (
+              
+              {/* TÍTULO */}
+              <Text style={styles.name}>{s.dispositivo}</Text>
+
+              {/* LINHA SECUNDÁRIA */}
+              <Text style={styles.info}>
+                Cliente: {s.cliente_nome || "Não informado"} 
+              </Text>
+              <Text style={styles.info}>Técnico: {s.tecnico}</Text>
+              <Text style={styles.info}>Problema: {s.descricao_problema}</Text>
+
+            
+              {/* PREVISÃO */}
+              {s.previsao_conclusao && (
                 <Text style={styles.info}>
-                  Valor: R$ {Number(s.valor).toFixed(2)}
+                  Previsão:{" "}
+                  {new Date(s.previsao_conclusao).toLocaleDateString()}
                 </Text>
               )}
+
+            <Text style={styles.info}>Status: {s.status_servico}</Text>
+
+              {/* PRIORIDADE COMO TAG */}
+              {s.prioridade ? (
+                <Text style={styles.tag}>{s.prioridade}</Text>
+              ) : null}
             </View>
 
             <View style={styles.actions}>
@@ -178,7 +220,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
   },
   name: {
     color: COLORS.white,
@@ -188,6 +229,18 @@ const styles = StyleSheet.create({
   info: {
     color: COLORS.gray,
     fontSize: 13,
+  },
+  tag: {
+    marginTop: 6,
+    backgroundColor: "#1e40af",
+    color: "#fff",
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    width: "auto",
+    alignSelf: "flex-start",
+    fontSize: 12,
+    fontWeight: "600",
   },
   actions: {
     justifyContent: "center",

@@ -16,6 +16,7 @@ import { COLORS } from "../theme/colors";
 
 const API_CLIENTE = "http://192.168.15.11:3000/cliente/quantidade";
 const API_PRODUTO = "http://192.168.15.11:3000/produto/quantidade";
+const API_SERVICO = "http://192.168.15.11:3000/servico/quantidade";
 
 export default function DashboardScreen() {
   const [stats, setStats] = useState({
@@ -39,37 +40,34 @@ export default function DashboardScreen() {
         return;
       }
 
-      /* ===== CLIENTES ===== */
+      /* CLIENTES */
       const resClientes = await fetch(API_CLIENTE, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const dataClientes = await resClientes.json();
+      if (!resClientes.ok) return Alert.alert("Erro", dataClientes.message);
 
-      if (!resClientes.ok) {
-        Alert.alert("Erro", dataClientes.message || "Falha ao carregar clientes.");
-        return;
-      }
-
-      /* ===== PRODUTOS ===== */
+      /* PRODUTOS */
       const resProduto = await fetch(API_PRODUTO, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const dataProduto = await resProduto.json();
+      if (!resProduto.ok) return Alert.alert("Erro", dataProduto.message);
 
-      if (!resProduto.ok) {
-        Alert.alert("Erro", dataProduto.message || "Falha ao carregar produtos.");
-        return;
-      }
+      /* SERVIÇOS ATIVOS */
+      const resServico = await fetch(API_SERVICO, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const dataServico = await resServico.json();
+      if (!resServico.ok) return Alert.alert("Erro", dataServico.message);
 
-      /* Inserindo valores no estado do dashboard */
-      setStats((prev) => ({
-        ...prev,
+      setStats({
         totalClients: dataClientes.total || 0,
         totalStock: dataProduto.total || 0,
-        lowStockAlerts: dataProduto.baixoEstoque || 0, // Caso você envie isso no backend depois
-      }));
+        lowStockAlerts: dataProduto.baixoEstoque || 0,
+        activeServices: dataServico.total || 0,
+        serviceAlerts: 0,
+      });
 
     } catch (err) {
       console.log("Erro ao buscar dados:", err);
@@ -153,7 +151,7 @@ export default function DashboardScreen() {
               />
 
               <DashCard
-                title="Serviços ativos"
+                title="Serviços Ativos"
                 value={stats.activeServices}
                 subtitle="Em andamento"
                 type="info"
